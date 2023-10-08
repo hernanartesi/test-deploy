@@ -12,7 +12,7 @@ import { InputNumber } from 'primereact/inputnumber';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Calendar } from 'primereact/calendar';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query  } from "firebase/firestore";
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where  } from "firebase/firestore";
 import { db } from '../config/firebase';
 import {ColumnGroup} from 'primereact/columngroup';
 import {Row} from 'primereact/row';
@@ -34,6 +34,7 @@ export const ProtectedContent = ()  => {
     const [movement, setMovement] = useState(emptyMovement);
     const [selectedMovements, setselectedMovements] = useState(null);
     const [submitted, setSubmitted] = useState(false);
+    const [globalFilter, setGlobalFilter] = useState(null);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0)
     const [dateTo, setDateTo] = useState(new Date())
@@ -42,40 +43,38 @@ export const ProtectedContent = ()  => {
     const toast = useRef(null);
     const dt = useRef(null);
 
+    const getMovements = async () => {
+        setLoading(true)
+        setTotal(0)
+
+        const q = query(collection(db,"movimientos-caja"), where("fecha", ">=", moment(dateFrom).startOf('day').toDate()), where("fecha", "<=", moment(dateTo).endOf('day').toDate()))  
+
+        await getDocs(q).then((querySnapshot) => {
+            const newData = querySnapshot.docs.map(doc => {
+                return {...doc.data(), id: doc.id, fecha: new Date(doc.data().fecha.toDate())}
+            }) 
+
+            setMovements(newData.map(d => {
+                return {
+                    ...d,
+                    fecha: new Date(d.fecha)
+                }
+            }))
+
+            let t = 0
+
+            newData.forEach((d) => {
+                t = t + (d.ingreso ?? 0) - (d.egreso ?? 0)
+            })
+
+            setTotal(t)
+            setLoading(false)
+         })
+    }
+
     useEffect(() => {
-        let isMounted = true;
-      
-        const fetchData = async () => {
-          try {
-            setLoading(true);
-            setTotal(0);
-      
-            const q = query(/* ... */);
-      
-            const querySnapshot = await getDocs(q);
-            const newData = querySnapshot.docs.map(/* ... */);
-      
-            if (isMounted) {
-              setMovements(newData.map(/* ... */));
-      
-              let t = 0;
-              newData.forEach((d) => {
-                t = t + (d.ingreso ?? 0) - (d.egreso ?? 0);
-              });
-      
-              setTotal(t);
-              setLoading(false);
-            }
-          } catch (error) {
-            console.error('Error fetching data:', error);
-            setLoading(false);
-          }
-        };
-      
-        fetchData();
-      
-        return () => { isMounted = false }; // Limpiar al desmontar
-      }, [dateFrom, dateTo]);
+      getMovements()
+    }, [dateFrom, dateTo]);
 
 
     const openNew = () => {
@@ -146,7 +145,9 @@ export const ProtectedContent = ()  => {
             console.log(e)
         }
 
-        setMovement(emptyMovement);        
+        setMovement(emptyMovement);
+        getMovements()
+        
     };
 
     const editProduct = (product) => {
@@ -328,7 +329,7 @@ export const ProtectedContent = ()  => {
                 <DataTable ref={dt} value={movements} selection={selectedMovements} onSelectionChange={(e) => setselectedMovements(e.value)}
                         dataKey="id"  paginator rows={10} rowsPerPageOptions={[5, 10, 25] } loading={loading} footerColumnGroup={footer}
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} movements"  header={header}>
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} movements" globalFilter={globalFilter} header={header}>
                     <Column field="id" header="ID"></Column>
                     <Column field="concepto" header="Concepto"></Column>
                     <Column field="ingreso" body={(rowData) => {return moneyTemplate(rowData.ingreso)}}></Column>
@@ -352,7 +353,7 @@ export const ProtectedContent = ()  => {
                     <label htmlFor="ingreso" className="font-bold">
                         Ingreso
                     </label>
-                    <InputNumber id="ingreso" value={movement.ingreso} onValueChange={(e) => onInputNumberChange(e,"ingreso")} disabled={movement.egreso !== 0}>
+                    <InputNumber id="ingreso" value={movement.ingreso} onValueChange={(e) => onInputNumberChange(e,"ingreso")} disabled={movement.egreso != 0}>
                     
                     </InputNumber>
                </div>
@@ -361,7 +362,7 @@ export const ProtectedContent = ()  => {
                     <label htmlFor="egreso" className="font-bold">
                         Egreso
                     </label>
-                    <InputNumber id="egreso" value={movement.egreso} onValueChange={(e) => onInputNumberChange(e,"egreso")} disabled={movement.ingreso !== 0}>
+                    <InputNumber id="egreso" value={movement.egreso} onValueChange={(e) => onInputNumberChange(e,"egreso")} disabled={movement.ingreso != 0}>
                     
                     </InputNumber>
                </div>
