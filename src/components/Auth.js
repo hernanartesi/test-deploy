@@ -11,7 +11,7 @@ export const Auth = () => {
 
   useEffect(() => {
     if (localStorage.getItem("firebaseToken")) {
-      navigate("/protected")
+      navigate("/protected")   
     }
    }
   )
