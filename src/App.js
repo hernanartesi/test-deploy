@@ -58,7 +58,7 @@ const ProtectedRoute = ({ redirectPath = "/", children }) => {
     } else {
       navigate(redirectPath)
     }
-  }, [])
+  }, [navigate, redirectPath]) // Añade navigate y redirectPath aquí
 
   return children
 }
